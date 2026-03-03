@@ -34,18 +34,32 @@ const CaseTable = ({ data, loading, error }) => {
                                 </td>
                             </tr>
                         ) : (
-                            data.map((row, idx) => (
-                                <tr
-                                    key={idx}
-                                    className="hover:bg-gray-50 transition-colors group cursor-default"
-                                >
-                                    <td className="p-4 text-sm text-text font-medium">{row.Doctor || '-'}</td>
-                                    <td className="p-4 text-sm text-text">{row.Name || '-'}</td>
-                                    <td className="p-4 text-sm text-text-muted">{row.Age || '-'}</td>
-                                    <td className="p-4 text-sm text-text-muted capitalize">{row.Gender || '-'}</td>
-                                    <td className="p-4 text-sm text-text-muted">{row['Date of Admission'] || '-'}</td>
-                                </tr>
-                            ))
+                            data.map((row, idx) => {
+                                // Format date from YYYY-MM-DD to DD-MM-YYYY
+                                const rawDate = row['Date of Admission'];
+                                let formattedDate = '-';
+                                if (rawDate) {
+                                    const parts = rawDate.split('-');
+                                    if (parts.length === 3) {
+                                        formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                    } else {
+                                        formattedDate = rawDate;
+                                    }
+                                }
+
+                                return (
+                                    <tr
+                                        key={idx}
+                                        className="hover:bg-gray-50 transition-colors group cursor-default"
+                                    >
+                                        <td className="p-4 text-sm text-text font-medium">{row.Doctor || '-'}</td>
+                                        <td className="p-4 text-sm text-text">{row.Name || '-'}</td>
+                                        <td className="p-4 text-sm text-text-muted">{row.Age || '-'}</td>
+                                        <td className="p-4 text-sm text-text-muted capitalize">{row.Gender || '-'}</td>
+                                        <td className="p-4 text-sm text-text-muted">{formattedDate}</td>
+                                    </tr>
+                                )
+                            })
                         )}
                     </tbody>
                 </table>

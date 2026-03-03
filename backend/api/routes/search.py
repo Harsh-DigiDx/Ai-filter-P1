@@ -13,6 +13,8 @@ class SearchRequest(BaseModel):
     query: str
     page: int = Field(default=1, description="Which page to fetch (1-indexed)")
     page_size: int = Field(default=DEFAULT_PAGE_SIZE, description="How many records per page")
+    sort_by: str | None = Field(default=None, description="Column to sort by (e.g., 'date', 'age', 'name', 'doctor')")
+    sort_order: str = Field(default='asc', description="'asc' or 'desc'")
 
 @router.post("")
 @router.post("/")
@@ -32,7 +34,7 @@ async def handle_search(request: SearchRequest):
 
         # Step 2: Build & execute the primary query (with all filters)
         response = await asyncio.to_thread(
-            lambda: build_query(filters).range(start, end).execute()
+            lambda: build_query(filters, request.sort_by, request.sort_order).range(start, end).execute()
         )
 
         data        : list[dict] = response.data
@@ -41,15 +43,23 @@ async def handle_search(request: SearchRequest):
 
         # Step 3: Date-filter fallback
         # If the query returned 0 results AND a date filter was applied AND
-        # there are other filters (name / doctor / age / gender), it likely means
-        # the date range falls outside the dataset's actual data coverage.
-        # In that case, re-run the same query WITHOUT the date filter so the
-        # user still sees matching records and gets a clear warning.
-        has_other_filters = any(k in filters for k in ("name", "doctor", "age", "gender"))
-        if total_count == 0 and "date" in filters and has_other_filters:
-            filters_no_date = {k: v for k, v in filters.items() if k != "date"}
+        # there are other filters, it likely means the date range falls outside the dataset.
+        exact_filters = filters.get("exact_filters", filters) # Handle legacy flat structure just in case
+        
+        # safely check if there are other keys besides 'date' in exact_filters
+        has_other_filters = any(k in exact_filters for k in ("name", "doctor", "age", "gender")) or bool(filters.get("ambiguous_names"))
+        
+        if total_count == 0 and "date" in exact_filters and has_other_filters:
+            exact_filters_no_date = {k: v for k, v in exact_filters.items() if k != "date"}
+            
+            # Rebuild structure
+            filters_no_date = {
+                "exact_filters": exact_filters_no_date,
+                "ambiguous_names": filters.get("ambiguous_names", [])
+            }
+            
             response_fallback = await asyncio.to_thread(
-                lambda: build_query(filters_no_date).range(start, end).execute()
+                lambda: build_query(filters_no_date, request.sort_by, request.sort_order).range(start, end).execute()
             )
             if (response_fallback.count or 0) > 0:
                 data         = response_fallback.data

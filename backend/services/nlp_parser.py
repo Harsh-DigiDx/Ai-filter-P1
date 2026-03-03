@@ -27,13 +27,20 @@ You possess deep language understanding and must map complex, casual, or synonym
 
 Today's date and time is: {datetime.now().isoformat()}
 
-Your ONLY job is to extract search filters based on the user's semantic intent and return them as a strict JSON object. Do NOT add any explanation or extra text.
+Your ONLY job is to extract search filters based on the user's semantic intent and return them as a strict JSON object with TWO main keys: "exact_filters" and "ambiguous_names". Do NOT add any explanation or extra text.
 
-Extract ONLY the following fields from context if they are mentioned or implied:
-- "name"   : (string) patient first name, lowercase. Look for the subject of the query (e.g. "looking for danny" -> "danny").
-- "gender" : (string) "male" or "female" only. Infer from synonyms: "guy", "boy", "man", "gentleman" -> "male". "woman", "girl", "lady" -> "female".
-- "age"    : (integer) the patient's age as a number. Reconcile approximations or words (e.g. "mid-twenties" -> 25, "forty five" -> 45) if needed.
-- "doctor" : (string) the doctor's last name, lowercase. Use context clues: "supervision of", "treated by", "assigned to", "handled by" indicates the doctor. Ignore prefixes like "dr", "dr.", "doctor".
+JSON STRUCTURE:
+{{
+  "exact_filters": {{...}},
+  "ambiguous_names": [...]
+}}
+
+RULES FOR "exact_filters":
+Extract ONLY the following fields into "exact_filters" if they are clearly mentioned or implied from context:
+- "name"   : (string) patient first name, lowercase. Use ONLY if context clearly indicates a patient (e.g. "looking for patient danny", "student sarah").
+- "gender" : (string) "male" or "female" only. Infer from synonyms: "guy", "boy", "man", "gentleman" -> "male". "woman", "girl", "lady","ladies" -> "female".
+- "age"    : (object) For exact or relative ages. Can contain ONE OR MORE of these keys: "eq" (exact), "lt" (less than), "lte" (less than or equal), "gt" (greater than), "gte" (greater than or equal). Values must be integers. Examples: "under 30" -> {{"lt": 30}}, "between 20 and 30" -> {{"gte": 20, "lte": 30}}, "mid twenties" -> {{"gte": 22, "lte": 27}}, "late forties" -> {{"gte": 47, "lte": 49}}, "45 years old" -> {{"eq": 45}}.
+- "doctor" : (string) the doctor's last name and first name, lowercase. Use ONLY if context clearly indicates a doctor: "supervision of", "treated by", "assigned to", "handled by". Ignore prefixes like "dr", "dr.", "doctor".
 - "date"   : (object) with:
     - "from" : date string in YYYY-MM-DD format (exact start boundary of the requested timeframe)
     - "to"   : date string in YYYY-MM-DD format (exact end boundary of the requested timeframe)
@@ -45,17 +52,19 @@ CRITICAL date resolution rules:
 - For specific months (e.g., "August 2020"): Set "from" to "2020-08-01" and "to" to "2020-08-31".
 - All dates MUST be in YYYY-MM-DD format.
 
-Rules:
-- If a field is not implied or explicitly mentioned, do NOT include it in the JSON.
-- Act as an intelligent data mapper. Use context and synonyms to slot data into the correct fields.
-- Return ONLY valid JSON. No markdown, no code fences, no explanation.
+RULES FOR "ambiguous_names":
+- If the user provides a name but there is NO context to indicate whether it's a doctor or a patient (e.g., just the word "Smith", "find Danny", "show me Rice"), put that name (lowercase) in the "ambiguous_names" array instead of guessing.
+- Do NOT put it in "exact_filters".
 
 Example outputs:
-For query: "find the records for a woman named sarah treated under supervision of smith in 2020"
-{{"name": "sarah", "gender": "female", "doctor": "smith", "date": {{"from": "2020-01-01", "to": "2020-12-31"}}}}
+For query: "find the records for a woman treated under supervision of smith in 2020"
+{{"exact_filters": {{"gender": "female", "doctor": "smith", "date": {{"from": "2020-01-01", "to": "2020-12-31"}}}}, "ambiguous_names": []}}
 
-For query: "show me patients assigned to rice last week"
-{{"doctor": "rice", "date": {{"from": "2026-02-23", "to": "2026-03-02"}}}}
+For query: "find Dannie"
+{{"exact_filters": {{}}, "ambiguous_names": ["dannie"]}}
+
+For query: "show me patients assigned to rice last week named sarah"
+{{"exact_filters": {{"doctor": "rice", "name": "sarah", "date": {{"from": "2026-02-23", "to": "2026-03-02"}}}}, "ambiguous_names": []}}
 """
 
 

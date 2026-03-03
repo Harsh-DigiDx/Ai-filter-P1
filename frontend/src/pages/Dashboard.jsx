@@ -13,6 +13,8 @@ const Dashboard = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('');
+    const [sortOrder, setSortOrder] = useState('asc');
 
     const fetchCases = async (query, page) => {
         setLoading(true);
@@ -27,6 +29,8 @@ const Dashboard = () => {
                     query: query,
                     page: page,
                     page_size: PAGE_SIZE,
+                    sort_by: sortBy || undefined,
+                    sort_order: sortOrder,
                 }),
             });
 
@@ -67,7 +71,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchCases(searchQuery, currentPage);
-    }, [searchQuery, currentPage]);
+    }, [searchQuery, currentPage, sortBy, sortOrder]);
 
     const handleSearch = (query) => {
         setSearchQuery(query);
@@ -87,6 +91,37 @@ const Dashboard = () => {
                 </div>
 
                 <SearchBar onSearch={handleSearch} />
+
+                <div className="flex justify-between items-center mb-4 px-2">
+                    <div className="text-sm text-gray-500">
+                        {loading ? 'Searching...' : (
+                            totalPages > 0 ? `Showing page ${currentPage} of ${totalPages}` : ''
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">Sort by:</span>
+                        <select
+                            value={`${sortBy}-${sortOrder}`}
+                            onChange={(e) => {
+                                const [newSortBy, newSortOrder] = e.target.value.split('-');
+                                setSortBy(newSortBy);
+                                setSortOrder(newSortOrder);
+                                setCurrentPage(1); // Reset to page 1 on sort change
+                            }}
+                            className="text-sm border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary px-3 py-1.5 cursor-pointer text-gray-700"
+                        >
+                            <option value="-asc">Most Relevant</option>
+                            <option value="date-desc">Date (Newest First)</option>
+                            <option value="date-asc">Date (Oldest First)</option>
+                            <option value="age-desc">Age (Highest First)</option>
+                            <option value="age-asc">Age (Lowest First)</option>
+                            <option value="name-asc">Patient Name (A-Z)</option>
+                            <option value="name-desc">Patient Name (Z-A)</option>
+                            <option value="doctor-asc">Doctor Name (A-Z)</option>
+                            <option value="doctor-desc">Doctor Name (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
 
                 <CaseTable
                     data={results}
